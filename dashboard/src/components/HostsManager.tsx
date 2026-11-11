@@ -41,7 +41,6 @@ import { cn } from "lib/cn";
 import {
 	proxyFingerprint,
 	proxyHostSecurity,
-	Textarea,
 } from "constants/Proxies";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import { type HostsSchema, useHosts } from "contexts/HostsContext";
@@ -71,10 +70,8 @@ import {
 	sanitizeFinalMask,
 } from "utils/finalmask";
 import { getHostFormFields } from "utils/hostFormFields";
-import {
-	normalizeVlessEncryption,
-	vlessEncryptionValid,
-} from "utils/vlessEncryption";
+import { Textarea } from "components/ui/textarea";
+import { normalizeVlessEncryption, vlessEncryptionValid } from "utils/vlessEncryption";
 import { hostClientSettingsError, parseHostClientSettings } from "utils/hostClientSettings";
 import { HostClientSettingsEditor } from "./HostClientSettingsEditor";
 import {
@@ -687,9 +684,7 @@ const validateHostState = (
 		);
 	}
 	if (!vlessEncryptionValid(data.vless_encryption)) {
-		errors.push(
-			"VLESS encryption must be a single value without spaces, &, # or ?.",
-		);
+		errors.push("VLESS encryption must be a single value without spaces, &, # or ?.");
 	}
 	const clientSettingsError = hostClientSettingsError(data.client_settings);
 	if (clientSettingsError) errors.push(clientSettingsError);
@@ -1061,14 +1056,9 @@ const HostForm: FC<HostFormProps> = ({
 		selectedInbound?.headerType,
 		selectedInbound?.protocol,
 	);
-	const isVlessInbound =
-		(selectedInbound?.protocol ?? "").trim().toLowerCase() === "vless";
+	const isVlessInbound = (selectedInbound?.protocol ?? "").trim().toLowerCase() === "vless";
 	const hasAdvancedSettings =
-		usesTLS ||
-		capabilities.supported ||
-		capabilities.mux ||
-		showsRequestHost ||
-		isVlessInbound;
+		usesTLS || capabilities.supported || capabilities.mux || showsRequestHost || isVlessInbound;
 	const transport = selectedInbound?.network.trim().toLowerCase() ?? "";
 	const requestHostLabel =
 		transport === "grpc"
@@ -1314,6 +1304,24 @@ const HostForm: FC<HostFormProps> = ({
 						</FormField>
 					) : null}
 
+					{isVlessInbound ? (
+						<FormField
+							label={t("hostsDialog.vlessEncryption")}
+							description={t("hostsDialog.vlessEncryptionHint")}
+							error={vlessEncryptionValid(data.vless_encryption) ? undefined : t("hostsDialog.vlessEncryptionInvalid")}
+						>
+							<Textarea
+								dir="ltr"
+								rows={3}
+								spellCheck={false}
+								className="font-mono text-xs break-all"
+								value={data.vless_encryption}
+								placeholder="mlkem768x25519plus.native.0rtt.…"
+								onChange={(event) => onChange("vless_encryption", event.target.value)}
+							/>
+						</FormField>
+					) : null}
+
 					<div className="grid grid-cols-1 gap-3 md:grid-cols-2">
 						{usesTLS ? (
 							<HostToggle
@@ -1374,36 +1382,6 @@ type HostDetailModalProps = {
 	onChangeInbound: (uid: string, inboundTag: string) => void;
 	onSave: (uid: string) => void;
 	onReset: (uid: string) => void;
-						{isVlessInbound && (
-							<FormControl
-								isInvalid={!vlessEncryptionValid(data.vless_encryption)}
-							>
-								<FormLabel>{t("hostsDialog.vlessEncryption")}</FormLabel>
-								<Textarea
-									dir="ltr"
-									rows={3}
-									fontFamily="mono"
-									fontSize="xs"
-									wordBreak="break-all"
-									spellCheck={false}
-									value={data.vless_encryption}
-									placeholder="mlkem768x25519plus.native.0rtt.…"
-									onChange={(event) =>
-										onChange("vless_encryption", event.target.value)
-									}
-								/>
-								{vlessEncryptionValid(data.vless_encryption) ? (
-									<FormHelperText>
-										{t("hostsDialog.vlessEncryptionHint")}
-									</FormHelperText>
-								) : (
-									<FormErrorMessage>
-										{t("hostsDialog.vlessEncryptionInvalid")}
-									</FormErrorMessage>
-								)}
-							</FormControl>
-						)}
-
 	onDelete: (uid: string) => void;
 	saving: boolean;
 	deleting: boolean;
