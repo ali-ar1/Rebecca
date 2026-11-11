@@ -41,6 +41,7 @@ import { cn } from "lib/cn";
 import {
 	proxyFingerprint,
 	proxyHostSecurity,
+	Textarea,
 } from "constants/Proxies";
 import { fetchInbounds, useDashboard } from "contexts/DashboardContext";
 import { type HostsSchema, useHosts } from "contexts/HostsContext";
@@ -70,6 +71,10 @@ import {
 	sanitizeFinalMask,
 } from "utils/finalmask";
 import { getHostFormFields } from "utils/hostFormFields";
+import {
+	normalizeVlessEncryption,
+	vlessEncryptionValid,
+} from "utils/vlessEncryption";
 import { hostClientSettingsError, parseHostClientSettings } from "utils/hostClientSettings";
 import { HostClientSettingsEditor } from "./HostClientSettingsEditor";
 import {
@@ -135,6 +140,7 @@ type HostData = {
 	fingerprint: string;
 	verify_peer_cert_by_name: string;
 	pinned_peer_cert_sha256: string;
+	vless_encryption: string;
 	use_sni_as_host: boolean;
 };
 
@@ -242,6 +248,7 @@ const EMPTY_HOST_DATA: HostData = {
 	fingerprint: "",
 	verify_peer_cert_by_name: "",
 	pinned_peer_cert_sha256: "",
+	vless_encryption: "",
 	use_sni_as_host: false,
 };
 
@@ -579,6 +586,7 @@ const normalizeHostData = (host: HostsSchema[string][number]): HostData => ({
 	fingerprint: host.fingerprint ?? "",
 	verify_peer_cert_by_name: host.verify_peer_cert_by_name ?? "",
 	pinned_peer_cert_sha256: host.pinned_peer_cert_sha256 ?? "",
+	vless_encryption: host.vless_encryption ?? "",
 	use_sni_as_host: normalizeBoolean(host.use_sni_as_host),
 });
 
@@ -615,6 +623,7 @@ const cloneHostData = (data: HostData): HostData => ({
 	fingerprint: data.fingerprint,
 	verify_peer_cert_by_name: data.verify_peer_cert_by_name,
 	pinned_peer_cert_sha256: data.pinned_peer_cert_sha256,
+	vless_encryption: data.vless_encryption,
 	use_sni_as_host: data.use_sni_as_host,
 });
 
@@ -675,6 +684,11 @@ const validateHostState = (
 	if (!certificatePinsValid(data.pinned_peer_cert_sha256)) {
 		errors.push(
 			"Certificate pins must be comma-separated SHA-256 fingerprints.",
+		);
+	}
+	if (!vlessEncryptionValid(data.vless_encryption)) {
+		errors.push(
+			"VLESS encryption must be a single value without spaces, &, # or ?.",
 		);
 	}
 	const clientSettingsError = hostClientSettingsError(data.client_settings);
@@ -756,6 +770,7 @@ const formatHostForApi = (
 		fingerprint: data.fingerprint || "",
 		verify_peer_cert_by_name: data.verify_peer_cert_by_name.trim(),
 		pinned_peer_cert_sha256: data.pinned_peer_cert_sha256.trim(),
+		vless_encryption: normalizeVlessEncryption(data.vless_encryption),
 		use_sni_as_host: data.use_sni_as_host,
 	};
 };
@@ -1046,8 +1061,14 @@ const HostForm: FC<HostFormProps> = ({
 		selectedInbound?.headerType,
 		selectedInbound?.protocol,
 	);
+	const isVlessInbound =
+		(selectedInbound?.protocol ?? "").trim().toLowerCase() === "vless";
 	const hasAdvancedSettings =
-		usesTLS || capabilities.supported || capabilities.mux || showsRequestHost;
+		usesTLS ||
+		capabilities.supported ||
+		capabilities.mux ||
+		showsRequestHost ||
+		isVlessInbound;
 	const transport = selectedInbound?.network.trim().toLowerCase() ?? "";
 	const requestHostLabel =
 		transport === "grpc"
@@ -1353,6 +1374,36 @@ type HostDetailModalProps = {
 	onChangeInbound: (uid: string, inboundTag: string) => void;
 	onSave: (uid: string) => void;
 	onReset: (uid: string) => void;
+						{isVlessInbound && (
+							<FormControl
+								isInvalid={!vlessEncryptionValid(data.vless_encryption)}
+							>
+								<FormLabel>{t("hostsDialog.vlessEncryption")}</FormLabel>
+								<Textarea
+									dir="ltr"
+									rows={3}
+									fontFamily="mono"
+									fontSize="xs"
+									wordBreak="break-all"
+									spellCheck={false}
+									value={data.vless_encryption}
+									placeholder="mlkem768x25519plus.native.0rtt.…"
+									onChange={(event) =>
+										onChange("vless_encryption", event.target.value)
+									}
+								/>
+								{vlessEncryptionValid(data.vless_encryption) ? (
+									<FormHelperText>
+										{t("hostsDialog.vlessEncryptionHint")}
+									</FormHelperText>
+								) : (
+									<FormErrorMessage>
+										{t("hostsDialog.vlessEncryptionInvalid")}
+									</FormErrorMessage>
+								)}
+							</FormControl>
+						)}
+
 	onDelete: (uid: string) => void;
 	saving: boolean;
 	deleting: boolean;
@@ -1693,6 +1744,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 			!finalMaskValid ||
 			hostClientSettingsError(formState.client_settings) ||
 			!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
+			!vlessEncryptionValid(formState.vless_encryption) ||
 			!formState.inboundTag ||
 			!formState.remark.trim() ||
 			Boolean(remarkError) ||
@@ -1746,6 +1798,7 @@ const CreateHostModal: FC<CreateHostModalProps> = ({
 							!finalMaskValid ||
 							Boolean(hostClientSettingsError(formState.client_settings)) ||
 							!certificatePinsValid(formState.pinned_peer_cert_sha256) ||
+							!vlessEncryptionValid(formState.vless_encryption) ||
 							!formState.inboundTag ||
 							!formState.remark.trim() ||
 							Boolean(remarkError) ||

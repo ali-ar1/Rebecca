@@ -492,6 +492,9 @@ func effectiveInboundForHost(wildcardSalt string, variables map[string]string, i
 	if host.AllowInsecure != nil && *host.AllowInsecure {
 		effective["ais"] = *host.AllowInsecure
 	}
+	if value := strings.TrimSpace(host.VLESSEncryption); value != "" && normalizeProxyProtocol(jsonvalue.String(inbound["protocol"])) == "vless" {
+		effective["encryption"] = value
+	}
 	if len(host.FinalMask) > 0 {
 		effective["finalmask"] = mergeHostFinalMask(inbound["finalmask"], host.FinalMask)
 		delete(effective, "fragment_setting")
